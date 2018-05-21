@@ -23,8 +23,8 @@ screen = pygame.display.set_mode((screen_width, screen_height))
 screen_rect = screen.get_rect()
 pygame.display.set_caption("Rock, Paper, Scissors")
 
-
 # Functions & Classes:
+
 
 def quit_game():
     """Quits the game."""
@@ -34,11 +34,14 @@ def quit_game():
 
 
 def text_objects(text, font):
+    """Defines a text object's font and rect"""
     textsurf = font.render(text, True, BWG[0])
     return textsurf, textsurf.get_rect()
 
 
 def message_display(text, font="arial", size=28, centering=True, x=0, y=0):
+    """Displays a message. Basically a GUI version of print().
+       If centered, the x and y coordinates start at the center."""
     font_and_size = pygame.font.SysFont(font, size)
     textsurf, textrect = text_objects(text, font_and_size)
     if centering:
@@ -48,46 +51,50 @@ def message_display(text, font="arial", size=28, centering=True, x=0, y=0):
     screen.blit(textsurf, textrect)
 
 
-def button(msg, x, y, w, h, inactivecolor, activecolor, action=None, centering=True):
-    # x and y coordinates start at center
-    mouse = pygame.mouse.get_pos()
-    click = pygame.mouse.get_pressed()
-    if centering:
-        x = (screen_centerx-(w/2)) + x
-        y = (screen_centery-(h/2)) + y
-    if x + w > mouse[0] > x and y + h > mouse[1] > y:
+class Button:
+    """Object class for buttons."""
+    def __init__(self):
+        pass
+
+    def draw(self, msg, x, y, w, h, inactivecolor, activecolor, action=None, center=False):
+        """Draws the button object and defines its action.
+           If centered, the x and y coordinates start at the center."""
+        mouse = pygame.mouse.get_pos()
+        click = pygame.mouse.get_pressed()
+        if center:
+            x = (screen_centerx-(w/2)) + x
+            y = (screen_centery-(h/2)) + y
+        if x + w > mouse[0] > x and y + h > mouse[1] > y:
+            self.dothing(msg, x, w, y, h, activecolor, click, action)
+        else:
+            pygame.draw.rect(screen, inactivecolor, (x, y, w, h))
+        font_and_size = pygame.font.SysFont("arial", 24)
+        textsurf, textrect = text_objects(msg, font_and_size)
+        textrect.center = ((x + (w / 2)), (y + (h / 2)))
+        screen.blit(textsurf, textrect)
+
+    @staticmethod
+    def dothing(msg, x, w, y, h, activecolor, click, action):
+        global mousedown
         pygame.draw.rect(screen, activecolor, (x, y, w, h))
-        if click[0] == 1 and action is not None:
+        if click[0] == 1 and action is not None and not mousedown:
             action()
-    else:
-        pygame.draw.rect(screen, inactivecolor, (x, y, w, h))
-    font_and_size = pygame.font.SysFont("arial", 24)
-    textsurf, textrect = text_objects(msg, font_and_size)
-    textrect.center = ((x + (w / 2)), (y + (h / 2)))
-    screen.blit(textsurf, textrect)
+            mousedown = True
 
 
-player_choice = ""
+class RPSButton(Button):
+    @staticmethod
+    def dothing(msg, x, w, y, h, activecolor, click, action):
+        global mousedown
+        pygame.draw.rect(screen, activecolor, (x, y, w, h))
+        if click[0] == 1 and not mousedown:
+            choose(msg)
+            mousedown = True
 
 
-def chose_r():
-    global player_choice
-    player_choice = "Rock"
-    global starting
-    starting = False
-
-
-def chose_p():
-    global player_choice
-    player_choice = "Paper"
-    global starting
-    starting = False
-
-
-def chose_s():
-    global player_choice
-    player_choice = "Scissors"
-    global starting
+def choose(n):
+    global player_choice, starting
+    player_choice = n
     starting = False
 
 
@@ -112,6 +119,7 @@ def resetstats():
 # Game initialization global variables:
 
 AI_choice = ""
+player_choice = ""
 
 starting = True
 reset = False
@@ -123,6 +131,11 @@ losecount = 0
 won = False
 lost = False
 notscored = True
+mousedown = False
+
+ResetBut = Button()
+GenericBut = Button()
+ChoiceBut = RPSButton()
 
 # --- Game loop ---
 
@@ -131,10 +144,8 @@ while True:
     for event in pygame.event.get():
         if event.type == QUIT:
             quit_game()
-
-    keys_pressed = pygame.key.get_pressed()
-    if (keys_pressed[K_LALT] or keys_pressed[K_RALT]) and keys_pressed[K_F4]:
-        quit_game()
+        if event.type == MOUSEBUTTONUP:
+            mousedown = False
 
     # - Screen-clearing code:
 
@@ -142,11 +153,15 @@ while True:
 
     # - Game logic and drawing code:
 
+    keys_pressed = pygame.key.get_pressed()
+    if (keys_pressed[K_LALT] or keys_pressed[K_RALT]) and keys_pressed[K_F4]:
+        quit_game()
+
     if starting:  # Starting condition. Lets the player choose their option.
         message_display("Rock, paper, or scissors:")
-        button("Rock", -150, 150, 100, 40, RGB[0], RGB[1], chose_r)
-        button("Paper", 0, 150, 100, 40, RGB[0], RGB[1], chose_p)
-        button("Scissors", 150, 150, 100, 40, RGB[0], RGB[1], chose_s)
+        ChoiceBut.draw("Rock", -150, 150, 100, 40, RGB[0], RGB[1], center=True)
+        ChoiceBut.draw("Paper", 0, 150, 100, 40, RGB[0], RGB[1], center=True)
+        ChoiceBut.draw("Scissors", 150, 150, 100, 40, RGB[0], RGB[1], center=True)
     else:  # Actions after the player makes their choice.
         if not AI_choice:
             AI_choice = choice(["Rock", "Paper", "Scissors"])
@@ -169,7 +184,7 @@ while True:
                 if won and notscored:
                     wincount += 1
                     notscored = False
-        button("Accept", 0, 110, 150, 40, CMY[1], CMY[0], accept)
+        GenericBut.draw("Accept", 0, 110, 150, 40, CMY[1], CMY[0], accept, center=True)
         if reset:
             AI_choice = ""
             starting = True
@@ -180,7 +195,7 @@ while True:
 
     message_display("Wins: %i" % wincount, centering=False, x=4)
     message_display("Loses: %i" % losecount, centering=False, x=4, y=32)
-    button("Reset stats", screen_width - 140, 0, 140, 40, RGB[0], RGB[1], resetstats, centering=False)
+    ResetBut.draw("Reset stats", screen_width - 140, 0, 140, 40, RGB[0], RGB[1], resetstats)
 
     # - Display updating and clock ticking code:
 
